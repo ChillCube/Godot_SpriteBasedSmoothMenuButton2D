@@ -3,6 +3,14 @@ Generated: 2026-03-09
 
 A different way of handling menu buttons, rather than using control nodes. This can be useful for animations among others
 
+### 📦 Dependencies
+
+| Source | Reference | Repository |
+| :--- | :--- | :--- |
+| Manual | [`Godot_SmoothMovement`](https://github.com/ChillCube/Godot_SmoothMovement/blob/main/DOCUMENTATION.md) | [Repo](https://github.com/ChillCube/Godot_SmoothMovement) |
+
+---
+
 ## Class: SmoothButton
 **Inherits:** [Sprite2D](https://docs.godotengine.org/en/stable/classes/class_sprite2d.html)
 
