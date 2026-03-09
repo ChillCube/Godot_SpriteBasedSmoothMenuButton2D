@@ -2,7 +2,7 @@
 extends Sprite2D
 class_name SmoothButton
 
-@onready var smooth_mover_scene = preload("res://Systems&Addons/Essentials/SmoothMovement/smooth_movement.tscn")
+@onready var smooth_mover_scene = SmoothMovement.new()
 var mover : Node 
 
 # --- Text Logic ---
