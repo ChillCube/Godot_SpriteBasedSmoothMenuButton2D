@@ -14,6 +14,7 @@ A different way of handling menu buttons, rather than using control nodes. This 
 ## Class: SmoothButton
 **Inherits:** [Sprite2D](https://docs.godotengine.org/en/stable/classes/class_sprite2d.html)
 
+Used for having smoother UI animations
 
 ### ⚙️ Inspector Variables (Exported)
 | Property | Type | Default | Description |

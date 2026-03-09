@@ -1,3 +1,4 @@
+## Used for having smoother UI animations
 @tool
 extends Sprite2D
 class_name SmoothButton
