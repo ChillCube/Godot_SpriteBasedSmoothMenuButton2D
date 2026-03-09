@@ -2,47 +2,52 @@
 extends Sprite2D
 class_name SmoothButton
 
-@onready var smooth_mover_scene = SmoothMovement.new()
-var mover : Node 
+@onready var smooth_mover_scene = SmoothMovement.new() ## The scene instance used to handle the smooth, physics-based movement logic.
+var mover : SmoothMovement
 
 # --- Text Logic ---
-enum TextPosition { CENTER, TOP, BOTTOM, LEFT, RIGHT }
+enum TextPosition { CENTER, TOP, BOTTOM, LEFT, RIGHT } ## Defines the possible anchor locations for the button's text label.
 var _label : Label
 
 # --- Static Controller Logic ---
-static var focused_button : SmoothButton = null
+static var focused_button : SmoothButton = null ## Keeps track of which button currently has controller/keyboard focus globally.
 
 # --- Internal Lerp Logic ---
 var _visual_tween : Tween
 
 @export_group("Text Settings")
-@export var button_text : String = "Button":
+@export var button_text : String = "Button": ## The string displayed on the button's label.
 	set(val):
 		button_text = val
 		if _label: _label.text = val
-@export var text_position : TextPosition = TextPosition.CENTER:
+
+
+@export var text_position : TextPosition = TextPosition.CENTER: ## Where the text label is placed relative to the button texture.
 	set(val):
 		text_position = val
 		_update_label_position()
-@export var text_offset : float = 10.0:
+
+@export var text_offset : float = 10.0: ## The distance (in pixels) the text sits away from the button texture edges.
 	set(val):
 		text_offset = val
 		_update_label_position()
-@export var label_settings : LabelSettings:
+
+@export var label_settings : LabelSettings: ## Custom LabelSettings resource for controlling font, size, and shadow.
 	set(val):
 		label_settings = val
 		if _label: _label.label_settings = val
 
 @export_group("Textures")
-@export var spr_button_not_pressed : Texture2D:
+@export var spr_button_not_pressed : Texture2D: ## The default texture used when the button is idle or hovered.
 	set(val):
 		spr_button_not_pressed = val
 		texture = val 
 		_update_label_position()
-@export var spr_button_pressed : Texture2D
+
+@export var spr_button_pressed : Texture2D ## The texture displayed while the button is actively being clicked or pressed.
 
 @export_group("Controller & Selection")
-@export var is_selected : bool = false:
+@export var is_selected : bool = false: ## Whether this button is currently highlighted/selected by the user.
 	set(val):
 		if val == true and button_hidden: return
 		if is_selected == val: return 
@@ -59,36 +64,37 @@ var _visual_tween : Tween
 			
 		_handle_selection_visuals()
 
-@export var selected_scale : float = 1.1
-@export var selected_color : Color = Color(1.2, 1.2, 1.2, 1.0)
-@export var lerp_time : float = 0.15
+@export var selected_scale : float = 1.1 ## The scale multiplier applied to the button when it is selected (e.g., 1.1 for 110%).
+@export var selected_color : Color = Color(1.2, 1.2, 1.2, 1.0) ## The color tint applied to the button when it is selected.
+@export var lerp_time : float = 0.15 ## The duration (in seconds) for the selection scale and color transitions.
 
 @export_group("Adaptive Positioning")
-var anchor_point : Vector2 = Vector2(0.5, 0.5):
+var anchor_point : Vector2 = Vector2(0.5, 0.5): ## The normalized screen coordinate (0.0 to 1.0) used as the button's origin.
 	set(val):
 		anchor_point = val
 		_update_anchor_position()
 
-@export var _position : Vector2 = Vector2.ZERO:
+@export var _position : Vector2 = Vector2.ZERO: ## The local offset relative to the anchor point when the button is visible.
 	set(val):
 		_position = val
 		_update_anchor_position()
 
-@export var _off_screen_position : Vector2 = Vector2(0.0, 0.6):
+@export var _off_screen_position : Vector2 = Vector2(0.0, 0.6): ## The local offset relative to the anchor point when the button is hidden.
 	set(val):
 		_off_screen_position = val
 		_update_anchor_position()
 
-@export var button_hidden : bool = false:
+
+@export var button_hidden : bool = false: ## If true, the button moves to its off-screen position and becomes unselectable.
 	set(val):
 		button_hidden = val
 		if button_hidden and is_selected:
 			is_selected = false
 
 @export_group("Movement Settings")
-@export var bounce : bool = false
-@export var rotation_on : bool = false
-@export var speed : float = 10
+@export var bounce : bool = false ## Enables an elastic bounce effect when the button reaches its target position.
+@export var rotation_on : bool = false ## If enabled, the button will slightly tilt/rotate during movement.
+@export var speed : float = 10 ## The speed multiplier for the smooth movement transition.
 
 var original_position : Vector2
 var current_off_screen_pixels : Vector2
