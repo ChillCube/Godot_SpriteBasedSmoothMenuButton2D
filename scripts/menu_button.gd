@@ -3,7 +3,6 @@
 extends Sprite2D
 class_name SmoothButton
 
-@onready var smooth_mover_scene = SmoothMovement.new() ## The scene instance used to handle the smooth, physics-based movement logic.
 var mover : SmoothMovement
 
 # --- Text Logic ---
@@ -33,19 +32,37 @@ var _visual_tween : Tween
 		text_offset = val
 		_update_label_position()
 
+@export var text_unpressed_height_offset : float = 0: ## This value is used for when the height of the text needs to be different for wheter or not the button is pressed or not
+	set(val):
+		text_unpressed_height_offset = val
+		_update_label_position()
+
 @export var label_settings : LabelSettings: ## Custom LabelSettings resource for controlling font, size, and shadow.
 	set(val):
 		label_settings = val
 		if _label: _label.label_settings = val
 
 @export_group("Textures")
-@export var spr_button_not_pressed : Texture2D: ## The default texture used when the button is idle or hovered.
+@export var spr_button_not_pressed : NinePatchRect: ## The default texture used when the button is idle or hovered.
 	set(val):
+		val.name = "ButtonNotPressed"
 		spr_button_not_pressed = val
-		texture = val 
+		spr_button_not_pressed.global_position = global_position
 		_update_label_position()
 
-@export var spr_button_pressed : Texture2D ## The texture displayed while the button is actively being clicked or pressed.
+@export var spr_button_pressed : NinePatchRect: ## The default texture used when the button is idle or hovered.
+	set(val):
+		val.name = "ButtonPressed"
+		spr_button_pressed = val
+		spr_button_pressed.global_position = global_position
+		_update_label_position()
+
+@export var _size : Vector2:
+	set(val):
+		_size = val
+		if spr_button_not_pressed and spr_button_pressed:
+			spr_button_not_pressed.size = _size
+			spr_button_pressed.size = _size
 
 @export_group("Controller & Selection")
 @export var is_selected : bool = false: ## Whether this button is currently highlighted/selected by the user.
@@ -57,6 +74,7 @@ var _visual_tween : Tween
 		if is_selected:
 			if focused_button and focused_button != self:
 				focused_button.is_selected = false
+				pass
 			focused_button = self
 		else:
 			_silent_unpress()
@@ -104,7 +122,11 @@ var _base_label_pos : Vector2 # Stores the "rest" position of the label
 signal button_pressed
 signal button_released
 
+@export var is_pressed : bool = false;
+
 func _ready() -> void:
+	add_child(spr_button_not_pressed)
+	add_child(spr_button_pressed)
 	_setup_label()
 	_update_anchor_position()
 	add_to_group("smooth_buttons")
@@ -112,10 +134,9 @@ func _ready() -> void:
 	if Engine.is_editor_hint(): return 
 	
 	get_tree().get_root().size_changed.connect(_update_anchor_position)
-	if spr_button_not_pressed: texture = spr_button_not_pressed
 	_area2D_creation()
 	
-	mover = smooth_mover_scene.instantiate()
+	mover = SmoothMovement.init(self)
 	add_child(mover)
 	mover.set("bounce", bounce)
 	mover.set("rotation_on", rotation_on)
@@ -133,42 +154,44 @@ func _setup_label() -> void:
 	_update_label_position()
 
 func _update_label_position() -> void:
-	if not _label or not texture: return
-	
-	var half_size = texture.get_size() / 2.0
-	_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_label.grow_vertical = Control.GROW_DIRECTION_BOTH
-	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	
+	var half_size = _size / 2.0
+	if _label:
+		_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_label.grow_vertical = Control.GROW_DIRECTION_BOTH
+		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER	
 	var target_center = Vector2.ZERO
+	var unpressed_height_offset : Vector2 = Vector2(0, 0)
+	if !is_pressed:
+		unpressed_height_offset = Vector2(0, text_unpressed_height_offset)
 	
 	match text_position:
 		TextPosition.CENTER:
-			target_center = Vector2.ZERO
+			target_center = Vector2.ZERO + unpressed_height_offset
 		TextPosition.TOP:
-			target_center = Vector2(0, -half_size.y - text_offset)
+			target_center = Vector2(0, -half_size.y - text_offset) + unpressed_height_offset
 			_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		TextPosition.BOTTOM:
-			target_center = Vector2(0, half_size.y + text_offset)
+			target_center = Vector2(0, half_size.y + text_offset) + unpressed_height_offset
 			_label.grow_vertical = Control.GROW_DIRECTION_END
 		TextPosition.LEFT:
-			target_center = Vector2(-half_size.x - text_offset, 0)
+			target_center = Vector2(-half_size.x - text_offset, 0) + unpressed_height_offset
 			_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 			_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 		TextPosition.RIGHT:
-			target_center = Vector2(half_size.x + text_offset, 0)
+			target_center = Vector2(half_size.x + text_offset, 0) + unpressed_height_offset
 			_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 			_label.grow_horizontal = Control.GROW_DIRECTION_END
 	
 	# Calculate the position relative to Sprite (0,0)
-	match text_position:
-		TextPosition.CENTER: _base_label_pos = target_center - (_label.size / 2.0)
-		TextPosition.LEFT: _base_label_pos = target_center - Vector2(_label.size.x, _label.size.y / 2.0)
-		TextPosition.RIGHT: _base_label_pos = target_center - Vector2(0, _label.size.y / 2.0)
-		TextPosition.TOP: _base_label_pos = target_center - Vector2(_label.size.x / 2.0, _label.size.y)
-		TextPosition.BOTTOM: _base_label_pos = target_center - Vector2(_label.size.x / 2.0, 0)
-	
-	_label.position = _base_label_pos
+	if _label:
+		match text_position:
+			TextPosition.CENTER: _base_label_pos = target_center - (_label.size / 2.0)
+			TextPosition.LEFT: _base_label_pos = target_center - Vector2(_label.size.x, _label.size.y / 2.0)
+			TextPosition.RIGHT: _base_label_pos = target_center - Vector2(0, _label.size.y / 2.0)
+			TextPosition.TOP: _base_label_pos = target_center - Vector2(_label.size.x / 2.0, _label.size.y)
+			TextPosition.BOTTOM: _base_label_pos = target_center - Vector2(_label.size.x / 2.0, 0)
+		
+		_label.position = _base_label_pos
 
 func _handle_selection_visuals() -> void:
 	if _visual_tween: _visual_tween.kill()
@@ -196,6 +219,17 @@ func _handle_selection_visuals() -> void:
 # --- Remaining Logic (Navigation, Input, etc. remains same) ---
 
 func _process(_delta: float) -> void:
+	spr_button_pressed.global_position = global_position - _size/2
+	spr_button_not_pressed.global_position = global_position - _size/2
+	rotation = 0;
+	
+	if is_pressed:
+		spr_button_pressed.visible = true;
+		spr_button_not_pressed.visible = false;
+	else:
+		spr_button_pressed.visible = false;
+		spr_button_not_pressed.visible = true;
+	
 	var target = original_position
 	if button_hidden: target = original_position + current_off_screen_pixels
 	if Engine.is_editor_hint():
@@ -260,21 +294,24 @@ func _change_selection(target: SmoothButton) -> void:
 	target.is_selected = true
 
 func _press_button() -> void:
+	_update_label_position()
 	button_pressed.emit()
-	texture = spr_button_pressed
+	is_pressed = true;
 
 func _release_button() -> void:
+	_update_label_position()
 	button_released.emit()
-	texture = spr_button_not_pressed
+	is_pressed = false;
 
 func _silent_unpress() -> void:
-	if texture == spr_button_pressed: texture = spr_button_not_pressed
+	pass
 
 func _update_anchor_position() -> void:
 	var viewport_size = get_viewport_rect().size
 	if viewport_size == Vector2.ZERO: return
 	original_position = (viewport_size * anchor_point) + (viewport_size * _position)
 	current_off_screen_pixels = viewport_size * _off_screen_position
+
 func _area2D_creation() -> void:
 	if Engine.is_editor_hint(): return
 	var area = Area2D.new()
@@ -283,17 +320,20 @@ func _area2D_creation() -> void:
 	var collision_shape = CollisionShape2D.new()
 	area.add_child(collision_shape)
 	var rect = RectangleShape2D.new()
-	if texture:
-		rect.size = texture.get_size()
+	if _size:
+		rect.size = _size
 		collision_shape.shape = rect
 		area.input_event.connect(_on_area_2d_input_event)
-		area.mouse_exited.connect(_on_mouse_exited)
+		area.mouse_exited.connect(func(): if not button_hidden: is_selected = false)
 		area.mouse_entered.connect(func(): if not button_hidden: is_selected = true)
-
-func _on_mouse_exited() -> void:
-	is_selected = false 
 
 func _on_area_2d_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed: _press_button()
-		else: if texture == spr_button_pressed: _release_button()
+		if event.pressed: 
+			print("buttton pressed")
+			_press_button()
+			is_pressed = true
+		else: 
+			if is_pressed: 
+				print("button released")
+				_release_button()
