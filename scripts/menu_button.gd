@@ -19,7 +19,9 @@ var _visual_tween : Tween
 @export var button_text : String = "Button": ## The string displayed on the button's label.
 	set(val):
 		button_text = val
-		if _label: _label.text = val
+		if _label:
+			_label.text = val
+			if adapt_size_to_text: _apply_adaptive_size()
 
 
 @export var text_position : TextPosition = TextPosition.CENTER: ## Where the text label is placed relative to the button texture.
@@ -40,7 +42,9 @@ var _visual_tween : Tween
 @export var label_settings : LabelSettings: ## Custom LabelSettings resource for controlling font, size, and shadow.
 	set(val):
 		label_settings = val
-		if _label: _label.label_settings = val
+		if _label:
+			_label.label_settings = val
+			if adapt_size_to_text: _apply_adaptive_size()
 
 @export_group("Textures")
 @export var spr_button_not_pressed : NinePatchRect: ## The default texture used when the button is idle or hovered.
@@ -63,6 +67,40 @@ var _visual_tween : Tween
 		if spr_button_not_pressed and spr_button_pressed:
 			spr_button_not_pressed.size = _size
 			spr_button_pressed.size = _size
+
+@export_group("Size Adaptation")
+@export var adapt_size_to_text: bool = false: ## When enabled, the button resizes to fit its text, subject to min/max constraints.
+	set(val):
+		adapt_size_to_text = val
+		if _label:
+			if not val:
+				_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+			else:
+				_apply_adaptive_size()
+@export var margin_left: float = 20: ## Left margin between text and button edge when adapt_size_to_text is enabled.
+	set(val):
+		margin_left = val
+		if adapt_size_to_text and _label: _apply_adaptive_size()
+@export var margin_right: float = 20: ## Right margin between text and button edge when adapt_size_to_text is enabled.
+	set(val):
+		margin_right = val
+		if adapt_size_to_text and _label: _apply_adaptive_size()
+@export var margin_top: float = 10: ## Top margin between text and button edge when adapt_size_to_text is enabled.
+	set(val):
+		margin_top = val
+		if adapt_size_to_text and _label: _apply_adaptive_size()
+@export var margin_bottom: float = 10: ## Bottom margin between text and button edge when adapt_size_to_text is enabled.
+	set(val):
+		margin_bottom = val
+		if adapt_size_to_text and _label: _apply_adaptive_size()
+@export var min_size: Vector2 = Vector2(0, 0): ## Minimum button size when adapting to text. Zero means no minimum on that axis.
+	set(val):
+		min_size = val
+		if adapt_size_to_text and _label: _apply_adaptive_size()
+@export var max_size: Vector2 = Vector2(0, 0): ## Maximum button size when adapting to text. Zero means no maximum on that axis. Text is truncated with ... if it exceeds max x.
+	set(val):
+		max_size = val
+		if adapt_size_to_text and _label: _apply_adaptive_size()
 
 @export_group("Controller & Selection")
 @export var is_selected : bool = false: ## Whether this button is currently highlighted/selected by the user.
@@ -88,6 +126,7 @@ var _visual_tween : Tween
 @export var lerp_time : float = 0.15 ## The duration (in seconds) for the selection scale and color transitions.
 
 @export_group("Adaptive Positioning")
+@export var use_relative_positioning : bool = true; ## Relative positioning ensures the UI stays on the same spot even when the screens are different. It is automatically turned off, if the parent is of type NodeArranger
 var anchor_point : Vector2 = Vector2(0.5, 0.5): ## The normalized screen coordinate (0.0 to 1.0) used as the button's origin.
 	set(val):
 		anchor_point = val
@@ -124,14 +163,21 @@ signal button_released
 
 @export var is_pressed : bool = false;
 
+func _turn_to_child(node):
+	if node == null: return
+	if node.get_parent() == self: return
+	if node.get_parent() != null:
+		node.get_parent().remove_child(node)
+	add_child(node)
+
 func _ready() -> void:
-	add_child(spr_button_not_pressed)
-	add_child(spr_button_pressed)
+	_turn_to_child(spr_button_not_pressed)
+	_turn_to_child(spr_button_pressed)
 	_setup_label()
 	_update_anchor_position()
 	add_to_group("smooth_buttons")
 	
-	if Engine.is_editor_hint(): return 
+	if Engine.is_editor_hint(): return
 	
 	get_tree().get_root().size_changed.connect(_update_anchor_position)
 	_area2D_creation()
@@ -142,16 +188,58 @@ func _ready() -> void:
 	mover.set("rotation_on", rotation_on)
 	mover.set("speed", speed)
 
+func _apply_adaptive_size() -> void:
+	if not adapt_size_to_text or not _label:
+		return
+
+	var font: Font = _label.get_theme_font("font")
+	var font_size_val: int = _label.get_theme_font_size("font_size")
+	if label_settings:
+		if label_settings.font: font = label_settings.font
+		if label_settings.font_size > 0: font_size_val = label_settings.font_size
+
+	var natural: Vector2 = font.get_string_size(button_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size_val)
+	var desired: Vector2 = Vector2(
+		natural.x + margin_left + margin_right,
+		natural.y + margin_top + margin_bottom
+	)
+
+	if min_size.x > 0: desired.x = maxf(desired.x, min_size.x)
+	if min_size.y > 0: desired.y = maxf(desired.y, min_size.y)
+
+	var needs_ellipsis := false
+	if max_size.x > 0 and desired.x > max_size.x:
+		desired.x = max_size.x
+		needs_ellipsis = true
+	if max_size.y > 0 and desired.y > max_size.y:
+		desired.y = max_size.y
+
+	_size = desired
+	if spr_button_not_pressed: spr_button_not_pressed.size = desired
+	if spr_button_pressed: spr_button_pressed.size = desired
+
+	if needs_ellipsis:
+		_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		_label.size = Vector2(desired.x - margin_left - margin_right, natural.y)
+	else:
+		_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+
+	_update_label_position()
+
 func _setup_label() -> void:
 	if not _label:
 		_label = Label.new()
 		add_child(_label)
-	
+
 	_label.text = button_text
 	if label_settings:
 		_label.label_settings = label_settings
-	
-	_update_label_position()
+
+	if adapt_size_to_text:
+		_apply_adaptive_size()
+	else:
+		_update_label_position()
 
 func _update_label_position() -> void:
 	var half_size = _size / 2.0
@@ -166,7 +254,10 @@ func _update_label_position() -> void:
 	
 	match text_position:
 		TextPosition.CENTER:
-			target_center = Vector2.ZERO + unpressed_height_offset
+			var margin_offset := Vector2.ZERO
+			if adapt_size_to_text:
+				margin_offset = Vector2((margin_left - margin_right) / 2.0, (margin_top - margin_bottom) / 2.0)
+			target_center = margin_offset + unpressed_height_offset
 		TextPosition.TOP:
 			target_center = Vector2(0, -half_size.y - text_offset) + unpressed_height_offset
 			_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -219,6 +310,10 @@ func _handle_selection_visuals() -> void:
 # --- Remaining Logic (Navigation, Input, etc. remains same) ---
 
 func _process(_delta: float) -> void:
+	_turn_to_child(spr_button_not_pressed)
+	_turn_to_child(spr_button_pressed)
+	move_child(_label, get_child_count() - 1)
+	
 	spr_button_pressed.global_position = global_position - _size/2
 	spr_button_not_pressed.global_position = global_position - _size/2
 	rotation = 0;
@@ -237,7 +332,8 @@ func _process(_delta: float) -> void:
 		if not _label: _setup_label()
 		_update_label_position()
 		return
-	if mover: mover.set("global_target_position", target)
+	if use_relative_positioning:
+		if mover: mover.set("global_target_position", target)
 	if focused_button == null: _check_for_initial_navigation()
 	if is_selected and not button_hidden: _handle_controller_input()
 
@@ -307,10 +403,11 @@ func _silent_unpress() -> void:
 	pass
 
 func _update_anchor_position() -> void:
-	var viewport_size = get_viewport_rect().size
-	if viewport_size == Vector2.ZERO: return
-	original_position = (viewport_size * anchor_point) + (viewport_size * _position)
-	current_off_screen_pixels = viewport_size * _off_screen_position
+	if use_relative_positioning and get_parent().get_class() != "NodeArranger":
+		var viewport_size = get_viewport_rect().size
+		if viewport_size == Vector2.ZERO: return
+		original_position = (viewport_size * anchor_point) + (viewport_size * _position)
+		current_off_screen_pixels = viewport_size * _off_screen_position
 
 func _area2D_creation() -> void:
 	if Engine.is_editor_hint(): return

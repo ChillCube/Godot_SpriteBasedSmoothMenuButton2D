@@ -1,5 +1,5 @@
 # Godot_SpriteBasedSmoothMenuButton2D API Reference
-Generated: 2026-05-09
+Generated: 2026-05-10
 
 A different way of handling menu buttons, rather than using control nodes. This can be useful for animations among others
 
@@ -18,10 +18,18 @@ Used for having smoother UI animations
 | **label_settings** | `LabelSettings:` | `-` | Custom LabelSettings resource for controlling font, size, and shadow. |
 | **spr_button_not_pressed** | `NinePatchRect:` | `-` | The default texture used when the button is idle or hovered. |
 | **spr_button_pressed** | `NinePatchRect:` | `-` | The default texture used when the button is idle or hovered. |
+| **adapt_size_to_text** | `bool` | `false` | When enabled, the button resizes to fit its text, subject to min/max constraints. |
+| **margin_left** | `float` | `20` | Left margin between text and button edge when adapt_size_to_text is enabled. |
+| **margin_right** | `float` | `20` | Right margin between text and button edge when adapt_size_to_text is enabled. |
+| **margin_top** | `float` | `10` | Top margin between text and button edge when adapt_size_to_text is enabled. |
+| **margin_bottom** | `float` | `10` | Bottom margin between text and button edge when adapt_size_to_text is enabled. |
+| **min_size** | `Vector2` | `Vector2(0, 0)` | Minimum button size when adapting to text. Zero means no minimum on that axis. |
+| **max_size** | `Vector2` | `Vector2(0, 0)` | Maximum button size when adapting to text. Zero means no maximum on that axis. Text is truncated with ... if it exceeds max x. |
 | **is_selected** | `bool` | `false` | Whether this button is currently highlighted/selected by the user. |
 | **selected_scale** | `float` | `1.1` | The scale multiplier applied to the button when it is selected (e.g., 1.1 for 110%). |
 | **selected_color** | `Color` | `Color(1.2, 1.2, 1.2, 1.0)` | The color tint applied to the button when it is selected. |
 | **lerp_time** | `float` | `0.15` | The duration (in seconds) for the selection scale and color transitions. |
+| **use_relative_positioning** | `bool` | `true` | Relative positioning ensures the UI stays on the same spot even when the screens are different. It is automatically turned off, if the parent is of type NodeArranger |
 | **_position** | `Vector2` | `Vector2.ZERO` | The local offset relative to the anchor point when the button is visible. |
 | **_off_screen_position** | `Vector2` | `Vector2(0.0, 0.6)` | The local offset relative to the anchor point when the button is hidden. |
 | **button_hidden** | `bool` | `false` | If true, the button moves to its off-screen position and becomes unselectable. |
