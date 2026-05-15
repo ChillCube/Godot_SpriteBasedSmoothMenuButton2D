@@ -434,3 +434,4 @@ func _on_area_2d_input_event(_viewport: Node, event: InputEvent, _shape_idx: int
 			if is_pressed: 
 				print("button released")
 				_release_button()
+
