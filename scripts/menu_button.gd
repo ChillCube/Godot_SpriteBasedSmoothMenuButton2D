@@ -1,4 +1,5 @@
 ## Used for having smoother UI animations
+@icon("res://addons/Godot_SpriteBasedSmoothMenuButton2D/icon_square.png")
 @tool
 extends Sprite2D
 class_name SmoothButton
