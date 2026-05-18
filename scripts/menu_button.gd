@@ -1,10 +1,7 @@
 ## Used for having smoother UI animations
-@icon("res://addons/Godot_SpriteBasedSmoothMenuButton2D/icon_square.png")
 @tool
-extends Sprite2D
+extends SmoothUI
 class_name SmoothButton
-
-var mover : SmoothMovement
 
 # --- Text Logic ---
 enum TextPosition { CENTER, TOP, BOTTOM, LEFT, RIGHT } ## Defines the possible anchor locations for the button's text label.
@@ -24,7 +21,6 @@ var _visual_tween : Tween
 			_label.text = val
 			if adapt_size_to_text: _apply_adaptive_size()
 
-
 @export var text_position : TextPosition = TextPosition.CENTER: ## Where the text label is placed relative to the button texture.
 	set(val):
 		text_position = val
@@ -35,7 +31,7 @@ var _visual_tween : Tween
 		text_offset = val
 		_update_label_position()
 
-@export var text_unpressed_height_offset : float = 0: ## This value is used for when the height of the text needs to be different for wheter or not the button is pressed or not
+@export var text_unpressed_height_offset : float = 0: ## This value is used for when the height of the text needs to be different for whether or not the button is pressed or not
 	set(val):
 		text_unpressed_height_offset = val
 		_update_label_position()
@@ -50,24 +46,31 @@ var _visual_tween : Tween
 @export_group("Textures")
 @export var spr_button_not_pressed : NinePatchRect: ## The default texture used when the button is idle or hovered.
 	set(val):
-		val.name = "ButtonNotPressed"
-		spr_button_not_pressed = val
-		spr_button_not_pressed.global_position = global_position
-		_update_label_position()
+		if val:
+			val.name = "ButtonNotPressed"
+			spr_button_not_pressed = val
+			if is_inside_tree():
+				_update_texture_positions()
+		else:
+			spr_button_not_pressed = val
 
-@export var spr_button_pressed : NinePatchRect: ## The default texture used when the button is idle or hovered.
+@export var spr_button_pressed : NinePatchRect: ## The texture used when the button is pressed.
 	set(val):
-		val.name = "ButtonPressed"
-		spr_button_pressed = val
-		spr_button_pressed.global_position = global_position
-		_update_label_position()
+		if val:
+			val.name = "ButtonPressed"
+			spr_button_pressed = val
+			if is_inside_tree():
+				_update_texture_positions()
+		else:
+			spr_button_pressed = val
 
-@export var _size : Vector2:
+@export var _size : Vector2 = Vector2(100, 50):
 	set(val):
 		_size = val
 		if spr_button_not_pressed and spr_button_pressed:
 			spr_button_not_pressed.size = _size
 			spr_button_pressed.size = _size
+		_update_texture_positions()
 
 @export_group("Size Adaptation")
 @export var adapt_size_to_text: bool = false: ## When enabled, the button resizes to fit its text, subject to min/max constraints.
@@ -78,26 +81,32 @@ var _visual_tween : Tween
 				_label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 			else:
 				_apply_adaptive_size()
+
 @export var margin_left: float = 20: ## Left margin between text and button edge when adapt_size_to_text is enabled.
 	set(val):
 		margin_left = val
 		if adapt_size_to_text and _label: _apply_adaptive_size()
+
 @export var margin_right: float = 20: ## Right margin between text and button edge when adapt_size_to_text is enabled.
 	set(val):
 		margin_right = val
 		if adapt_size_to_text and _label: _apply_adaptive_size()
+
 @export var margin_top: float = 10: ## Top margin between text and button edge when adapt_size_to_text is enabled.
 	set(val):
 		margin_top = val
 		if adapt_size_to_text and _label: _apply_adaptive_size()
+
 @export var margin_bottom: float = 10: ## Bottom margin between text and button edge when adapt_size_to_text is enabled.
 	set(val):
 		margin_bottom = val
 		if adapt_size_to_text and _label: _apply_adaptive_size()
+
 @export var min_size: Vector2 = Vector2(0, 0): ## Minimum button size when adapting to text. Zero means no minimum on that axis.
 	set(val):
 		min_size = val
 		if adapt_size_to_text and _label: _apply_adaptive_size()
+
 @export var max_size: Vector2 = Vector2(0, 0): ## Maximum button size when adapting to text. Zero means no maximum on that axis. Text is truncated with ... if it exceeds max x.
 	set(val):
 		max_size = val
@@ -106,63 +115,42 @@ var _visual_tween : Tween
 @export_group("Controller & Selection")
 @export var is_selected : bool = false: ## Whether this button is currently highlighted/selected by the user.
 	set(val):
-		if val == true and button_hidden: return
+		if val == true and is_hidden: return
 		if is_selected == val: return 
 		is_selected = val
 		
 		if is_selected:
 			if focused_button and focused_button != self:
 				focused_button.is_selected = false
-				pass
 			focused_button = self
 		else:
 			_silent_unpress()
 			if focused_button == self:
 				focused_button = null
-			
+		
 		_handle_selection_visuals()
 
 @export var selected_scale : float = 1.1 ## The scale multiplier applied to the button when it is selected (e.g., 1.1 for 110%).
 @export var selected_color : Color = Color(1.2, 1.2, 1.2, 1.0) ## The color tint applied to the button when it is selected.
 @export var lerp_time : float = 0.15 ## The duration (in seconds) for the selection scale and color transitions.
 
-@export_group("Adaptive Positioning")
-@export var use_relative_positioning : bool = true; ## Relative positioning ensures the UI stays on the same spot even when the screens are different. It is automatically turned off, if the parent is of type NodeArranger
-var anchor_point : Vector2 = Vector2(0.5, 0.5): ## The normalized screen coordinate (0.0 to 1.0) used as the button's origin.
-	set(val):
-		anchor_point = val
-		_update_anchor_position()
-
-@export var _position : Vector2 = Vector2.ZERO: ## The local offset relative to the anchor point when the button is visible.
-	set(val):
-		_position = val
-		_update_anchor_position()
-
-@export var _off_screen_position : Vector2 = Vector2(0.0, 0.6): ## The local offset relative to the anchor point when the button is hidden.
-	set(val):
-		_off_screen_position = val
-		_update_anchor_position()
-
-
-@export var button_hidden : bool = false: ## If true, the button moves to its off-screen position and becomes unselectable.
-	set(val):
-		button_hidden = val
-		if button_hidden and is_selected:
-			is_selected = false
-
-@export_group("Movement Settings")
-@export var bounce : bool = false ## Enables an elastic bounce effect when the button reaches its target position.
-@export var rotation_on : bool = false ## If enabled, the button will slightly tilt/rotate during movement.
-@export var speed : float = 10 ## The speed multiplier for the smooth movement transition.
-
-var original_position : Vector2
-var current_off_screen_pixels : Vector2
 var _base_label_pos : Vector2 # Stores the "rest" position of the label
 
 signal button_pressed
 signal button_released
 
-@export var is_pressed : bool = false;
+@export var is_pressed : bool = false
+
+func _ready() -> void:
+	super._ready() # Call SmoothUI's _ready
+	_turn_to_child(spr_button_not_pressed)
+	_turn_to_child(spr_button_pressed)
+	_setup_label()
+	add_to_group("smooth_buttons")
+	
+	if Engine.is_editor_hint(): return
+	
+	_area2D_creation()
 
 func _turn_to_child(node):
 	if node == null: return
@@ -171,23 +159,12 @@ func _turn_to_child(node):
 		node.get_parent().remove_child(node)
 	add_child(node)
 
-func _ready() -> void:
-	_turn_to_child(spr_button_not_pressed)
-	_turn_to_child(spr_button_pressed)
-	_setup_label()
-	_update_anchor_position()
-	add_to_group("smooth_buttons")
-	
-	if Engine.is_editor_hint(): return
-	
-	get_tree().get_root().size_changed.connect(_update_anchor_position)
-	_area2D_creation()
-	
-	mover = SmoothMovement.init(self)
-	add_child(mover)
-	mover.set("bounce", bounce)
-	mover.set("rotation_on", rotation_on)
-	mover.set("speed", speed)
+func _update_texture_positions() -> void:
+	"""Update the positions of the texture children"""
+	if spr_button_not_pressed:
+		spr_button_not_pressed.position = -_size / 2
+	if spr_button_pressed:
+		spr_button_pressed.position = -_size / 2
 
 func _apply_adaptive_size() -> void:
 	if not adapt_size_to_text or not _label:
@@ -216,8 +193,7 @@ func _apply_adaptive_size() -> void:
 		desired.y = max_size.y
 
 	_size = desired
-	if spr_button_not_pressed: spr_button_not_pressed.size = desired
-	if spr_button_pressed: spr_button_pressed.size = desired
+	_update_texture_positions()
 
 	if needs_ellipsis:
 		_label.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -243,11 +219,15 @@ func _setup_label() -> void:
 		_update_label_position()
 
 func _update_label_position() -> void:
+	if _size == Vector2.ZERO:
+		return
+		
 	var half_size = _size / 2.0
 	if _label:
 		_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
 		_label.grow_vertical = Control.GROW_DIRECTION_BOTH
 		_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER	
+	
 	var target_center = Vector2.ZERO
 	var unpressed_height_offset : Vector2 = Vector2(0, 0)
 	if !is_pressed:
@@ -308,41 +288,43 @@ func _handle_selection_visuals() -> void:
 			_visual_tween.tween_property(_label, "scale", Vector2.ONE, lerp_time)
 			_visual_tween.tween_property(_label, "position", _base_label_pos, lerp_time)
 
-# --- Remaining Logic (Navigation, Input, etc. remains same) ---
-
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	super._process(delta) # Call SmoothUI's _process
+	
 	_turn_to_child(spr_button_not_pressed)
 	_turn_to_child(spr_button_pressed)
-	move_child(_label, get_child_count() - 1)
 	
-	spr_button_pressed.global_position = global_position - _size/2
-	spr_button_not_pressed.global_position = global_position - _size/2
-	rotation = 0;
+	if _label:
+		move_child(_label, get_child_count() - 1)
 	
-	if is_pressed:
-		spr_button_pressed.visible = true;
-		spr_button_not_pressed.visible = false;
-	else:
-		spr_button_pressed.visible = false;
-		spr_button_not_pressed.visible = true;
+	# Update texture positions each frame to follow the button
+	_update_texture_positions()
 	
-	var target = original_position
-	if button_hidden: target = original_position + current_off_screen_pixels
+	# Update visibility based on pressed state
+	if spr_button_pressed and spr_button_not_pressed:
+		if is_pressed:
+			spr_button_pressed.visible = true
+			spr_button_not_pressed.visible = false
+		else:
+			spr_button_pressed.visible = false
+			spr_button_not_pressed.visible = true
+	
+	# Prevent rotation from SmoothMovement from affecting the button's children
+	rotation = 0
+	
 	if Engine.is_editor_hint():
-		global_position = target
 		if not _label: _setup_label()
 		_update_label_position()
 		return
-	if use_relative_positioning:
-		if mover: mover.set("global_target_position", target)
+	
 	if focused_button == null: _check_for_initial_navigation()
-	if is_selected and not button_hidden: _handle_controller_input()
+	if is_selected and not is_hidden: _handle_controller_input()
 
 func _check_for_initial_navigation() -> void:
 	if _get_dpad_direction() != Vector2.ZERO:
 		var buttons = get_tree().get_nodes_in_group("smooth_buttons")
 		for b in buttons:
-			if b is SmoothButton and not b.button_hidden:
+			if b is SmoothButton and not b.is_hidden:
 				b.is_selected = true
 				return
 
@@ -350,11 +332,11 @@ func _handle_controller_input() -> void:
 	if Input.is_action_just_pressed("ui_accept"): 
 		_press_button()
 	if Input.is_action_just_released("ui_accept"):
-		if texture == spr_button_pressed: _release_button()
+		if is_pressed: _release_button()
 	var d_pad_dir = _get_dpad_direction()
 	if d_pad_dir != Vector2.ZERO: 
 		_navigate_to_closest(d_pad_dir)
-		get_viewport().set_input_as_handled() # Prevents other buttons from seeing it this frame
+		get_viewport().set_input_as_handled()
 
 func _get_dpad_direction() -> Vector2:
 	var dir = Vector2.ZERO
@@ -368,20 +350,22 @@ func _navigate_to_closest(dir: Vector2) -> void:
 	var buttons = get_tree().get_nodes_in_group("smooth_buttons")
 	var best_candidate : SmoothButton = null
 	var min_score = INF
-	_update_anchor_position()
+	
 	for b in buttons:
-		if b == self or b.button_hidden or not b is SmoothButton: 
+		if b == self or b.is_hidden or not b is SmoothButton: 
 			continue
-		b._update_anchor_position() # Ensure the target has a valid position too
+		
 		var vector_to_next = b.original_position - self.original_position
 		var distance = vector_to_next.length()
 		if distance < 0.1: continue 
+		
 		var dot = vector_to_next.normalized().dot(dir)
 		if dot > 0.5:
 			var score = distance + ((1.0 - dot) * 10000.0)
 			if score < min_score:
 				min_score = score
 				best_candidate = b
+				
 	if best_candidate:
 		call_deferred("_change_selection", best_candidate)
 		get_viewport().set_input_as_handled()
@@ -393,22 +377,15 @@ func _change_selection(target: SmoothButton) -> void:
 func _press_button() -> void:
 	_update_label_position()
 	button_pressed.emit()
-	is_pressed = true;
+	is_pressed = true
 
 func _release_button() -> void:
 	_update_label_position()
 	button_released.emit()
-	is_pressed = false;
+	is_pressed = false
 
 func _silent_unpress() -> void:
 	pass
-
-func _update_anchor_position() -> void:
-	if use_relative_positioning and get_parent().get_class() != "NodeArranger":
-		var viewport_size = get_viewport_rect().size
-		if viewport_size == Vector2.ZERO: return
-		original_position = (viewport_size * anchor_point) + (viewport_size * _position)
-		current_off_screen_pixels = viewport_size * _off_screen_position
 
 func _area2D_creation() -> void:
 	if Engine.is_editor_hint(): return
@@ -422,16 +399,14 @@ func _area2D_creation() -> void:
 		rect.size = _size
 		collision_shape.shape = rect
 		area.input_event.connect(_on_area_2d_input_event)
-		area.mouse_exited.connect(func(): if not button_hidden: is_selected = false)
-		area.mouse_entered.connect(func(): if not button_hidden: is_selected = true)
+		area.mouse_exited.connect(func(): if not is_hidden: is_selected = false)
+		area.mouse_entered.connect(func(): if not is_hidden: is_selected = true)
 
 func _on_area_2d_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed: 
-			print("buttton pressed")
 			_press_button()
 			is_pressed = true
 		else: 
 			if is_pressed: 
-				print("button released")
 				_release_button()
